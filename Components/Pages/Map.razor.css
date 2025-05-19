@@ -1,0 +1,597 @@
+.map-container {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell;
+    position: relative;
+    width: 100%;
+    height: 100vh;
+}
+
+#map {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+.top-bar {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: transparent;
+    pointer-events: none;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell;
+}
+.top-bar * {
+    pointer-events: auto;
+}
+
+.top-bar-left {
+    display: flex;
+    align-items: center;
+}
+
+.top-bar-right {
+    display: flex;
+    align-items: center;
+}
+
+/*поиск*/
+
+.search-form-view {
+    display: flex;
+    align-items: center;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    width: 300px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell;
+}
+
+.search-form-view-input {
+    flex: 1;
+    margin-right: 8px;
+    padding: 8px;
+}
+
+.search-input {
+    width: 100%;
+    border: none;
+    outline: none;
+    font-size: 16px;
+}
+
+.rounded-controls {
+    display: flex;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.custom-zoom-controls {
+    position: absolute;
+    top: 50%;
+    right: 20px;
+    transform: translateY(-50%);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    transition: background-color 0.25s;
+}
+
+
+#edit-mode-button
+{
+    border-radius: 8px 0px 0px 8px;
+}
+
+#start-finish-button {
+    border-radius: 0px 8px 8px 0px;
+}
+
+#edit-menu-edit-button {
+    border-radius: 8px 0px 0px 8px;
+}
+
+#edit-menu-delete-button {
+    border-radius: 0px 8px 8px 0px;
+}
+
+#lock-button {
+    border-radius: 0px 8px 8px 0px;
+}
+
+#zoom-in {
+    border-radius: 8px 8px 0px 0px;
+}
+
+#zoom-out {
+    border-radius: 0px 0px 8px 8px;
+}
+
+.button:hover {
+    background-color: #f0f0f0;
+}
+
+.button.active {
+    background-color: #d0d0d0;
+}
+
+.button svg {
+    width: 24px;
+    height: 24px;
+}
+
+.edit-menu {
+    position: absolute;
+    transform: translateX(-50%) scale(0.95) translateY(-5px);
+    display: flex;
+    flex-direction: row;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
+    z-index: 1000;
+
+    opacity: 0;
+    transform: scale(0.95) translateY(-5px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    pointer-events: none;
+}
+
+/* Показываем меню */
+.edit-menu.show {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    pointer-events: auto;
+}
+
+.edit-menu::before {
+    content: "";
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-bottom: 8px solid white;
+    z-index: 1001;
+}
+
+/* Кнопки внутри меню */
+.edit-tool-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    transition: background-color 0.25s;
+}
+
+.edit-tool-button:hover {
+    background-color: #f0f0f0;
+}
+
+.edit-tool-button.active {
+    background-color: #f0f0f0;
+}
+
+.drone-menu-container {
+    position: absolute;
+    top: 50%;
+    left: 20px;
+    transform: translateY(-50%);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    width: 100%; /* Ширина в пределах родителя */
+    max-width: 300px; /* Можно ограничить */
+    max-height: 300px;
+    overflow: hidden; /* Убираем прокрутку по Y */
+}
+
+.drone-menu-header {
+    position: sticky;
+    top: 0;
+    background-color: white;
+    z-index: 10;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.drone-menu-header.active {
+    border-bottom: 1px solid #ddd;
+}
+
+.drone-menu-header-text {
+    font-size: 16px;
+    margin-left: 8px;
+    margin-bottom: 2px;
+}
+
+
+/* Делаем drone-menu-list адаптивным */
+.drone-menu-list {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    overflow-y: auto; /* Оставляем прокрутку, но только для списка */
+    padding: 0; /* Убираем лишние отступы */
+}
+
+.drone-content {
+    width: 100%;
+}
+
+/* Стили для элементов списка */
+.drone-item {
+    display: flex;
+    flex-direction: row; /* Элементы располагаются вертикально */
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: background-color 0.25s, border-color 0.25s;
+    background-color: white;
+    padding: 2px 8px 4px 8px;
+    gap: 4px; /* Отступ между info и description */
+    border-radius: 6px;
+}
+
+.drone-item:hover {
+    background-color: #f0f0f0;
+}
+
+.drone-item.selected {
+    background-color: #e0e0e0;
+}
+
+/* Кастомная прокрутка */
+.drone-menu-list::-webkit-scrollbar {
+    width: 2px;
+    transition: color 0.25s;
+}
+
+.drone-menu-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.drone-menu-list::-webkit-scrollbar-thumb {
+    background: rgba(150, 150, 150, 0.5);
+    border-radius: 4px;
+    transition: color 0.25s;
+}
+
+.drone-menu-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 100, 100, 0.6);
+    transition: color 0.25s;
+}
+
+.drone-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* Имя слева, кнопка удаления справа */
+    width: 100%; /* Растянуть по ширине */
+    gap: 8px;
+}
+
+.drone-item .drone-description {
+    display: none;
+    opacity: 0;
+    transition: all 0.25s;
+    animation: all 0.25s;
+}
+
+.drone-item:hover .drone-description {
+    display: inline;
+    opacity: 1;
+    transition: all 0.25s;
+    animation: all 0.25s;
+}
+
+.drone-name {
+    margin-bottom: 1px;
+    font-size: 16px;
+    transition: color 0.25s;
+    cursor: pointer;
+}
+
+.drone-name-container {
+    flex-grow: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.drone-name:hover {
+    color: rgba(100, 100, 100, 0.7);
+}
+
+.drone-details {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.drone-description,
+.path-info {
+    font-size: 12px;
+    color: #666;
+    line-height: 1.3;
+    display: flex;
+    justify-content: left;
+}
+
+.drone-item.expanded {
+    background-color: #f8f8f8;
+    transition: all 0.25s ease;
+}
+
+.path-length {
+    font-weight: 500;
+    color: #666;
+}
+
+.path-length.warning {
+    color: #ff9800; /* оранжевый */
+}
+
+.path-length.danger {
+    color: #f44336; /* красный */
+}
+
+/* Контейнер для выбора цвета */
+.color-picker-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Поле выбора цвета */
+.color-picker {
+    width: 18px;
+    height: 20px;
+    border: none;
+    cursor: pointer;
+    border-radius: 25%;
+    padding: 0;
+    appearance: none;
+    background: none;
+    margin: 4px 0px 2px 0px
+}
+
+/* Стилизация ползунка цвета */
+.color-picker::-webkit-color-swatch {
+    border: none;
+    border-radius: 25%;
+    padding: 0;
+}
+
+.color-picker::-moz-color-swatch {
+    border: none;
+    border-radius: 25%;
+    padding: 0;
+}
+
+/* Кнопка удаления дрона */
+.remove-drone-button,
+.modal-close-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: inherit;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    transition: color 0.25s;
+    color: #888;
+}
+
+.modal-close-button {
+    position: static;
+    margin-left: auto; 
+    top: 24px;
+    right: 24px;
+    z-index: 1;
+}
+
+/* Подсвечивание иконки при наведении */
+.remove-drone-button:hover,
+.modal-close-button:hover {
+    color: #ff4d4d; /* Красный цвет */
+}
+
+/* Стили для иконки удаления */
+.remove-drone-button svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.4);
+    display: none; /* Скрываем по умолчанию */
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+
+.modal-overlay.active {
+    display: flex; /* Показываем только с классом active */
+}
+
+.modal-content {
+    position: relative;
+    padding-top: 35px; /* Место для кнопки закрытия */
+    background: #ffffff;
+    width: 480px;
+    border-radius: 18px;
+    padding: 24px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell;
+}
+
+.modal-title {
+    margin: 0; /* Убираем стандартные отступы */
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #1c1c1e;
+}
+
+.form-group {
+    margin-bottom: 1.2rem;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.85rem;
+    color: #86868b;
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+.input-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.input-with-unit {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.unit-selector {
+    display: flex;
+    background: #f5f5f7;
+    border-radius: 8px;
+    padding: 2px;
+    transition: 0.25s;
+}
+
+.unit-btn {
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: none;
+    font-size: 0.9rem;
+    color: #86868b;
+    transition: all 0.25s;
+    animation: all 0.25s;
+}
+
+.unit-btn.active {
+    background: white;
+    color: #007aff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.form-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #e5e5ea;
+    border-radius: 10px;
+    font-size: 1rem;
+    background: #fff;
+    transition: all 0.25s;
+    box-sizing: border-box;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: #007aff;
+    box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.15);
+}
+
+.form-group, .input-row, .input-with-unit {
+    width: 100%;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 0 16px 0;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.btn {
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: all 0.25s;
+}
+
+.btn-primary {
+    background: #007aff;
+    color: white;
+    border: none;
+}
+
+.btn-primary:hover {
+    background: #0063cc;
+}
+
+.btn-secondary {
+    background: #f5f5f7;
+    color: #1c1c1e;
+    border: none;
+}
+
+.btn-secondary:hover {
+    background: #e5e5ea;
+}
+
+.invalid {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.2rem rgba(220,53,69,.25);
+}
+
+.validation-error {
+    color: #dc3545;
+    font-size: 0.875em;
+    margin-top: 0.25rem;
+}
