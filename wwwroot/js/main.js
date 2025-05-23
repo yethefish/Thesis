@@ -1,5 +1,5 @@
 import { initializeMap } from './mapInit.js';
-import { toggleLockAnimation, toggleEditModeButton, toggleDeleteModeButton, toggleEditMenu, toggleEditModeMenuButton, updateEditMenuPosition, handleColorItemSelection, toggleStartFinishModeButton } from './ui.js';
+import { toggleLockAnimation, toggleEditModeButton, toggleDeleteModeButton, toggleEditMenu, toggleEditModeMenuButton, updateEditMenuPosition, handleColorItemSelection, toggleStartFinishModeButton, downloadFile } from './ui.js';
 import { drawPoint, drawLine, drawPolygon, clearMap, clearPolygon } from './polygon.js';
 import { searchAddress } from './search.js';
 import { drawStartFinishPoints, clearDroneStartFinishPoints, drawDronePath, clearDronePath } from './points.js';
@@ -22,6 +22,7 @@ window.clearDroneStartFinishPoints = clearDroneStartFinishPoints;
 window.toggleStartFinishModeButton = toggleStartFinishModeButton;
 window.drawDronePath = drawDronePath;
 window.clearDronePath = clearDronePath;
+window.downloadFile = downloadFile;
 
 window.setDotNetReference = (dotNetRef) => {
     window.dotNetReference = dotNetRef;

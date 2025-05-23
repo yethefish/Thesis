@@ -1,8 +1,11 @@
+// PathService.cs
 using Microsoft.JSInterop;
 using Models;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System;
+using System.Text;
 
 namespace Services
 {
@@ -18,10 +21,10 @@ namespace Services
         public async Task CalculateAndDrawDronePath(Drone drone)
         {
             await _jsRuntime.InvokeVoidAsync("clearDronePath", drone.Color);
-            
-            if (drone.Polygon.Points.Count < 3 || !drone.Polygon.IsClosed() || 
-                drone.StartPoint == null || drone.EndPoint == null)
+
+            if (drone.StartPoint == null || drone.EndPoint == null)
             {
+                drone.Path.Points.Clear();
                 return;
             }
 
@@ -31,8 +34,8 @@ namespace Services
 
             if (pathPoints.Count > 1)
             {
-                await _jsRuntime.InvokeVoidAsync("drawDronePath", 
-                    pathPoints.Select(p => new[] { p.Latitude, p.Longitude }).ToList(), 
+                await _jsRuntime.InvokeVoidAsync("drawDronePath",
+                    pathPoints.Select(p => new[] { p.Latitude, p.Longitude }).ToList(),
                     drone.Color);
             }
         }
@@ -45,101 +48,13 @@ namespace Services
             }
         }
 
-        public List<Models.Point> CalculateOptimalPath(Drone drone)
+        public async Task<double> GetPathLength(Drone drone)
         {
-            var path = new List<Models.Point>();
-            
-            path.Add(drone.StartPoint);
-
-            if (drone.Polygon.IsClosed())
+            if (drone.Path == null || drone.Path.Points.Count < 2)
             {
-                path.AddRange(CalculateBoustrophedonPath(drone));
+                return 0;
             }
-
-            path.Add(drone.EndPoint);
-
-            return path;
-        }
-
-        private List<Models.Point> CalculateBoustrophedonPath(Drone drone)
-        {
-            var polygonPoints = drone.Polygon.Points.Take(drone.Polygon.Points.Count - 1).ToList();
-            var path = new List<Models.Point>();
-
-            if (polygonPoints.Count < 3) return path;
-
-            // 1. Определяем ограничивающий прямоугольник полигона
-            double minLat = polygonPoints.Min(p => p.Latitude);
-            double maxLat = polygonPoints.Max(p => p.Latitude);
-            double minLon = polygonPoints.Min(p => p.Longitude);
-            double maxLon = polygonPoints.Max(p => p.Longitude);
-
-            // 2. Рассчитываем шаг сканирования на основе радиуса дрона
-            double coverageWidth = 4 * drone.Radius;
-            double overlap = 0.1;
-            double stepMeters = coverageWidth * (1 - overlap);
-            double stepLat = stepMeters / 111320.0; // Конвертируем метры в градусы широты
-
-            // 3. Генерируем линии сканирования с отступом от границ
-            bool leftToRight = true;
-            for (double lat = minLat + stepLat; lat <= maxLat - stepLat; lat += stepLat)
-            {
-                // Находим точки пересечения горизонтальной линии с полигоном
-                var intersections = FindIntersections(polygonPoints, lat)
-                    .OrderBy(p => p.Longitude)
-                    .ToList();
-
-                if (intersections.Count < 2) continue;
-
-                // Пропускаем нечетное количество пересечений
-                if (intersections.Count % 2 != 0) continue;
-
-                // Создаем пары точек для линий сканирования
-                for (int i = 0; i < intersections.Count; i += 2)
-                {
-                    var start = intersections[i];
-                    var end = intersections[i + 1];
-
-                    // Смещение точек внутрь полигона по долготе
-                    double offsetMeters = stepMeters * 0.1; // 10% от шага
-                    double offsetLon = offsetMeters / (111320.0 * Math.Cos(lat * Math.PI / 180));
-                    var startShifted = new Models.Point(start.Latitude, start.Longitude + offsetLon);
-                    var endShifted = new Models.Point(end.Latitude, end.Longitude - offsetLon);
-
-                    if (leftToRight)
-                    {
-                        path.Add(startShifted);
-                        path.Add(endShifted);
-                    }
-                    else
-                    {
-                        path.Add(endShifted);
-                        path.Add(startShifted);
-                    }
-                }
-
-                leftToRight = !leftToRight; // Меняем направление
-            }
-
-            return path;
-        }
-
-        private List<Models.Point> FindIntersections(List<Models.Point> polygonPoints, double lat)
-        {
-            var intersections = new List<Models.Point>();
-            int n = polygonPoints.Count;
-            for (int i = 0; i < n; i++)
-            {
-                Models.Point P1 = polygonPoints[i];
-                Models.Point P2 = polygonPoints[(i + 1) % n];
-                if ((P1.Latitude < lat && P2.Latitude >= lat) || (P1.Latitude >= lat && P2.Latitude < lat))
-                {
-                    double t = (lat - P1.Latitude) / (P2.Latitude - P1.Latitude);
-                    double lon = P1.Longitude + t * (P2.Longitude - P1.Longitude);
-                    intersections.Add(new Models.Point(lat, lon));
-                }
-            }
-            return intersections;
+            return drone.Path.CalculateLength();
         }
 
         public async Task ClearDronePath(Drone drone)
@@ -147,14 +62,210 @@ namespace Services
             await _jsRuntime.InvokeVoidAsync("clearDronePath", drone.Color);
         }
 
-        public async Task<double> GetPathLength(Drone drone)
+        public List<Models.Point> CalculateOptimalPath(Drone drone)
         {
-            if (drone.Path == null || drone.Path.Points.Count < 2)
+            // Тот же бустрофедон, но с плавными переходами
+            return GenerateBoustrophedonPath(drone);
+        }
+
+
+        private List<Models.Point> GenerateBoustrophedonPath(Drone drone)
+        {
+            var poly = drone.Polygon.Points;
+            // отбрасываем последний дублирующий
+            var boundary = poly.Take(poly.Count - 1).ToList();
+
+            var segments = new List<(Models.Point Start, Models.Point End)>();
+            double step = 4 * drone.Radius;
+            double minLat = boundary.Min(p => p.Latitude);
+            double maxLat = boundary.Max(p => p.Latitude);
+            double stepLat = step / 111320.0; // градусы
+
+            bool leftToRight = true;
+            for (double lat = minLat + stepLat / 2; lat <= maxLat; lat += stepLat)
             {
-                return 0;
+                var ints = GetScanLineIntersections(boundary, lat)
+                              .OrderBy(p => p.Longitude).ToList();
+                if (ints.Count < 2) continue;
+                for (int i = 0; i < ints.Count - 1; i += 2)
+                {
+                    var a = ints[i];
+                    var b = ints[i + 1];
+                    segments.Add(leftToRight
+                        ? (a, b)
+                        : (b, a));
+                    leftToRight = !leftToRight;
+                }
             }
-            
-            return drone.Path.CalculateLength();
+
+            var path = new List<Models.Point>();
+            // стартуем из StartPoint
+            Models.Point current = drone.StartPoint;
+            double currentBearing = double.NaN; // пока не задан
+            path.Add(current);
+
+            for (int i = 0; i < segments.Count; i++)
+            {
+                var (segStart, segEnd) = segments[i];
+                // 1) Подлетаем к началу сегмента
+
+                double desiredBearing = CalculateBearing(current, segStart);
+
+                // если первый сегмент — currentBearing NaN, считаем его = desiredBearing
+                if (i == 0) currentBearing = desiredBearing;
+
+                // если угол > max, рисуем дугу
+                if (Math.Abs(NormalizeAngle(desiredBearing - currentBearing)) > drone.MaxTurnAngle)
+                {
+                    var turnArc = GenerateArcFromTo(
+                        current, segStart,
+                        currentBearing, drone.Radius * 2.6);
+                    path.AddRange(turnArc);
+                }
+                else
+                {
+                    // иначе можно сразу прыгнуть в segStart
+                    path.Add(segStart);
+                }
+
+                // 2) Прямой проход
+                path.Add(segEnd);
+
+                // обновляем current и bearing на конец сегмента
+                current = segEnd;
+                currentBearing = CalculateBearing(segStart, segEnd);
+            }
+
+            // 3) Переход к конечной точке
+
+            path.Add(drone.EndPoint);
+
+
+            // всегда завершаем EndPoint
+            if (!path.Last().Equals(drone.EndPoint))
+                path.Add(drone.EndPoint);
+
+            return path;
+        }
+
+        // Генерация дуги из from->to, учитывая начальный курс и радиус поворота.
+        // Возвращает серию точек от прямой до to. Последняя точка == to.
+        private List<Models.Point> GenerateArcFromTo(
+            Models.Point from,
+            Models.Point to,
+            double initialBearing,
+            double turnRadiusMeters,
+            int segments = 20)
+        {
+            var arc = new List<Models.Point>();
+            double targetBearing = CalculateBearing(from, to);
+            // signed угол от начального до целевого
+            double delta = NormalizeSigned(targetBearing - initialBearing);
+            double direction = Math.Sign(delta);
+
+            double absDelta = Math.Abs(delta);
+            double angleStep = absDelta / segments;
+
+            for (int i = 1; i <= segments; i++)
+            {
+                double bearing = initialBearing + direction * angleStep * i;
+                // длина дуги на земле: L = R * θ (θ в рад)
+                double dist = turnRadiusMeters * (angleStep * Math.PI / 180) * i;
+                var pt = ComputeOffset(from, dist, bearing);
+                arc.Add(pt);
+            }
+            // гарантируем точное попадание в to
+            arc[arc.Count - 1] = to;
+            return arc;
+        }
+
+        private Models.Point ComputeOffset(Models.Point start, double distMeters, double bearingDeg)
+        {
+            const double R = 6371000.0;
+            double φ1 = ToRad(start.Latitude);
+            double λ1 = ToRad(start.Longitude);
+            double θ = ToRad(bearingDeg);
+
+            double φ2 = Math.Asin(Math.Sin(φ1) * Math.Cos(distMeters / R) +
+                                  Math.Cos(φ1) * Math.Sin(distMeters / R) * Math.Cos(θ));
+            double λ2 = λ1 + Math.Atan2(Math.Sin(θ) * Math.Sin(distMeters / R) * Math.Cos(φ1),
+                                       Math.Cos(distMeters / R) - Math.Sin(φ1) * Math.Sin(φ2));
+
+            return new Models.Point(ToDeg(φ2), ToDeg(λ2));
+        }
+
+        private List<Models.Point> GetScanLineIntersections(
+            List<Models.Point> poly, double scanLat)
+        {
+            var ints = new List<Models.Point>();
+            for (int i = 0; i < poly.Count; i++)
+            {
+                var a = poly[i];
+                var b = poly[(i + 1) % poly.Count];
+                if ((a.Latitude <= scanLat && b.Latitude > scanLat) ||
+                    (a.Latitude > scanLat && b.Latitude <= scanLat))
+                {
+                    double lon = a.Longitude +
+                                 (scanLat - a.Latitude) *
+                                 (b.Longitude - a.Longitude) /
+                                 (b.Latitude - a.Latitude);
+                    ints.Add(new Models.Point(scanLat, lon));
+                }
+            }
+            return ints;
+        }
+
+        private double CalculateBearing(Models.Point a, Models.Point b)
+        {
+            double φ1 = ToRad(a.Latitude), φ2 = ToRad(b.Latitude);
+            double Δλ = ToRad(b.Longitude - a.Longitude);
+
+            double y = Math.Sin(Δλ) * Math.Cos(φ2);
+            double x = Math.Cos(φ1) * Math.Sin(φ2) -
+                       Math.Sin(φ1) * Math.Cos(φ2) * Math.Cos(Δλ);
+            return NormalizeAngle(ToDeg(Math.Atan2(y, x)));
+        }
+
+        private double NormalizeAngle(double angle)
+        {
+            angle %= 360;
+            return angle < 0 ? angle + 360 : angle;
+        }
+
+        private double NormalizeSigned(double angle)
+        {
+            angle %= 360;
+            if (angle > 180) angle -= 360;
+            if (angle < -180) angle += 360;
+            return angle;
+        }
+
+        private double ToRad(double deg) => deg * Math.PI / 180.0;
+        private double ToDeg(double rad) => rad * 180.0 / Math.PI;
+        
+        public async Task<string> GenerateMavlinkWaypointsCsv(Drone drone)
+        {
+            double altitude = 50;
+            double acceptanceRadius = 10;
+            if (drone.Path?.Points == null || drone.Path.Points.Count < 2)
+                return string.Empty;
+
+            var csv = new StringBuilder();
+            csv.AppendLine("Seq,Frame,Command,Param1,Param2,Param3,Param4,X,Y,Z");
+
+            csv.AppendLine($"0,3,22,0,0,0,0,{drone.StartPoint.Latitude},{drone.StartPoint.Longitude},{altitude}");
+
+            int seq = 1;
+            foreach (var point in drone.Path.Points)
+            {
+                csv.AppendLine($"{seq},3,16,{acceptanceRadius},0,0,0,{point.Latitude},{point.Longitude},{altitude}");
+                seq++;
+            }
+
+            // Добавляем команду посадки (MAV_CMD_NAV_LAND)
+            csv.AppendLine($"{seq},3,21,0,0,0,0,{drone.EndPoint.Latitude},{drone.EndPoint.Longitude},0");
+
+            return csv.ToString();
         }
     }
 }

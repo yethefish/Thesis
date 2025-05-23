@@ -31,6 +31,8 @@ namespace Pages
         private string radiusError = "";
         private string nameError = "";
 
+        private string altitudeError = "";
+
 
         [Inject]
         private IMapService MapService { get; set; }
@@ -211,6 +213,21 @@ namespace Pages
             await MapService.SearchAddress(address);
         }
 
+        private async Task SavePath()
+        {
+            var selectedDrone = drones.FirstOrDefault(d => d.IsSelected);
+            if (selectedDrone == null || selectedDrone.Path?.Points == null) return;
+
+            var csvContent = await PathService.GenerateMavlinkWaypointsCsv(selectedDrone);
+            
+            var fileName = $"{selectedDrone.Name}_mission.csv";
+            var fileContent = System.Text.Encoding.UTF8.GetBytes(csvContent);
+            
+            await JSRuntime.InvokeVoidAsync("downloadFile", 
+                fileName, 
+                Convert.ToBase64String(fileContent));
+        }
+
         private async Task AddDrone()
         {
             var drone = new Drone();
@@ -276,6 +293,7 @@ namespace Pages
             flightRangeError = "";
             radiusError = "";
             nameError = "";
+            altitudeError = "";
             currentDrone = new Drone();
             
             isEditingDrone = false;
@@ -310,6 +328,7 @@ namespace Pages
             flightRangeError = "";
             radiusError = "";
             nameError = "";
+            altitudeError = "";
 
             if (!drone.IsSelected)
             {
@@ -346,7 +365,8 @@ namespace Pages
 
             if (!string.IsNullOrEmpty(nameError) || 
                 !string.IsNullOrEmpty(flightRangeError) || 
-                !string.IsNullOrEmpty(radiusError))
+                !string.IsNullOrEmpty(radiusError) ||
+                !string.IsNullOrEmpty(altitudeError))
             {
                 return;
             }
@@ -368,6 +388,7 @@ namespace Pages
                     existingDrone.Color = currentDrone.Color;
                     existingDrone.Radius = currentDrone.Radius;
                     existingDrone.FlightRange = currentDrone.FlightRange;
+                    existingDrone.Altitude = currentDrone.Altitude;
                 }
             }
             else
@@ -462,11 +483,10 @@ namespace Pages
             if (double.TryParse(e.Value?.ToString(), out var inputValue))
             {
                 var min = isKm ? 0.1 : 1;
-                var max = isKm ? 1000 : 100000;
                 
-                if (inputValue < min || inputValue > max)
+                if (inputValue < min)
                 {
-                    flightRangeError = $"Значение должно быть от {min} до {max}";
+                    flightRangeError = $"Значение должно быть больше {min}";
                     return;
                 }
                 
@@ -481,14 +501,14 @@ namespace Pages
             StateHasChanged();
         }
 
-        private void HandleRadiusInput(ChangeEventArgs e, bool isKm)
+        private void HandleRadiusInput(ChangeEventArgs e)
         {
             radiusError = "";
             if (double.TryParse(e.Value?.ToString(), out var inputValue))
             {
-                if (inputValue < 10 || inputValue > 5000)
+                if (inputValue < 1)
                 {
-                    radiusError = "Значение должно быть от 10 до 5000";
+                    radiusError = "Значение должно быть больше 1";
                     StateHasChanged();
                     return;
                 }
@@ -501,12 +521,33 @@ namespace Pages
             }
             StateHasChanged();
         }
+        
+        private void HandleАltitudeInput(ChangeEventArgs e)
+        {
+            altitudeError = "";
+            if (double.TryParse(e.Value?.ToString(), out var inputValue))
+            {
+                if (inputValue < 1)
+                {
+                    altitudeError = "Значение должно быть больше 1";
+                    StateHasChanged();
+                    return;
+                }
+                
+                currentDrone.Altitude = (double)inputValue;
+            }
+            else
+            {
+                altitudeError = "Некорректное значение";
+            }
+            StateHasChanged();
+        }
 
         private void HandleNameInput(ChangeEventArgs e)
         {
             nameError = "";
             string input = e.Value?.ToString()?.Trim() ?? "";
-            
+
             if (string.IsNullOrEmpty(input))
             {
                 nameError = "Название не может быть пустым";
@@ -515,7 +556,7 @@ namespace Pages
             {
                 nameError = "Максимум 24 символа";
             }
-            
+
             currentDrone.Name = input;
             StateHasChanged();
         }

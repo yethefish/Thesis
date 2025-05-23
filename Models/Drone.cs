@@ -1,8 +1,9 @@
+// Drone.cs
 using System.ComponentModel.DataAnnotations;
 
 namespace Models
 {
-    public class Drone 
+    public class Drone
     {
         public int Id { get; set; }
         [MaxLength(24, ErrorMessage = "Название не может превышать 24 символа")]
@@ -20,6 +21,11 @@ namespace Models
         public double Radius { get; set; }
         [Required]
         public double FlightRange { get; set; }
+        public double Altitude { get; set; }
+
+        public double MaxTurnAngle { get; set; } = 5; 
+        public double MinTurnRadiusMeters { get; set; } = 50;
+
         private static int _idCounter = 0;
         public DronePath Path { get; set; } = new DronePath();
 
@@ -29,8 +35,10 @@ namespace Models
             Color = GetRandomColor();
             IsSelected = false;
             Polygon = new Polygon();
-            Radius = 10;
-            FlightRange = 100;
+            Radius = 50;          // Default coverage/sensor radius
+            FlightRange = 1000;
+            Altitude = 100;
+            // MaxTurnAngle default is 30 degrees
         }
 
         private string GetRandomColor()

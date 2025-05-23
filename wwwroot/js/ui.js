@@ -166,3 +166,12 @@ export function toggleStartFinishModeButton(isStartFinishMode) {
         button.classList.remove("active");
     }
 }
+
+export function downloadFile(filename, base64Content) {
+    const link = document.createElement('a');
+    link.href = `data:text/csv;base64,${base64Content}`;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}

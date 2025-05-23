@@ -104,7 +104,7 @@
     border-radius: 8px 0px 0px 8px;
 }
 
-#start-finish-button {
+#save-path-button {
     border-radius: 0px 8px 8px 0px;
 }
 
@@ -189,6 +189,7 @@
     width: 24px;
     height: 24px;
     transition: background-color 0.25s;
+    z-index: 1000;
 }
 
 .edit-tool-button:hover {
